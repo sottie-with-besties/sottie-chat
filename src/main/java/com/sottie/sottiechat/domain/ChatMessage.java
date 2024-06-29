@@ -20,14 +20,16 @@ public class ChatMessage {
     private LocalDateTime timestamp;
     private MessageType messageType;
     private Status status;
+    private ChatType chatType;
 
     @Builder
-    public ChatMessage(Long chatRoomId, Long senderId, String content, MessageType messageType) {
+    public ChatMessage(Long chatRoomId, Long senderId, String content, MessageType messageType, LocalDateTime timestamp, Status status, ChatType chatType) {
         this.chatRoomId = chatRoomId;
         this.senderId = senderId;
         this.content = content;
         this.messageType = messageType;
-        this.timestamp = LocalDateTime.now();
-        this.status = Status.SUCCESS;
+        this.timestamp = timestamp;
+        this.status = status;
+        this.chatType = chatType;
     }
 }
