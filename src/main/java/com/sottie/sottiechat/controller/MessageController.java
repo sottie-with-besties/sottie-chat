@@ -17,4 +17,9 @@ public class MessageController {
     public void enterChatRoom(@DestinationVariable("roomId") Long roomId, @Payload MessageRequest.Enter message) {
         messageService.enterChatRoom(roomId, message);
     }
+
+    @MessageMapping("chat.talk.{roomId}")
+    public void sendChatMessage(@DestinationVariable("roomId") Long roomId, @Payload MessageRequest.Chat message) {
+        messageService.sendChatMessage(roomId, message);
+    }
 }
