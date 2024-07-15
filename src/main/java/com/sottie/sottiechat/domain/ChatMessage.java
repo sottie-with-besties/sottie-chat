@@ -1,5 +1,6 @@
 package com.sottie.sottiechat.domain;
 
+import com.sottie.sottiechat.dto.MessageResponse;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -31,5 +32,17 @@ public class ChatMessage {
         this.timestamp = timestamp;
         this.status = status;
         this.chatType = chatType;
+    }
+
+    public static ChatMessage from(Long roomId, MessageResponse.Chat response, Status status){
+        return ChatMessage.builder()
+                .chatRoomId(roomId)
+                .senderId(response.getSender().getUserId())
+                .chatType(response.getChatType())
+                .messageType(response.getMessageType())
+                .timestamp(LocalDateTime.parse(response.getTimestamp()))
+                .status(status)
+                .content(response.getContents())
+                .build();
     }
 }
