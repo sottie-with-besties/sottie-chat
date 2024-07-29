@@ -11,6 +11,8 @@ import org.springframework.amqp.AmqpException;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.stereotype.Service;
 
+import java.util.List;
+
 @Service
 @RequiredArgsConstructor
 @Slf4j
@@ -53,6 +55,16 @@ public class MessageService {
         } finally {
             chatMessageRepository.save(ChatMessage.from(roomId, response, status));
         }
+    }
+
+    public List<ChatMessage> getChatMessagesByPaging(Long chatRoomId, String cursor, int size) {
+        if (size < 1)
+            throw new IllegalArgumentException("페이지 개수가 유효하지 않습니다.");
+
+        if (cursor == null) // 최초 페이지
+            return chatMessageRepository.findLatestChat(chatRoomId, size);
+
+        return chatMessageRepository.findChatByPaging(chatRoomId, cursor, size);
     }
 
     private boolean isAlreadyEnteredChatRoom(Long roomId, Long senderId) {
