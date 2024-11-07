@@ -7,6 +7,7 @@ import org.springframework.data.mongodb.repository.Query;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
+import java.util.Optional;
 
 @Repository
 public interface ChatMessageRepository extends MongoRepository<ChatMessage, String> {
@@ -22,6 +23,15 @@ public interface ChatMessageRepository extends MongoRepository<ChatMessage, Stri
             }
     )
     List<ChatMessage> findLatestChat(Long chatRoomId, int limit);
+
+    @Aggregation(
+            pipeline = {
+                    "{ $match : { 'chatRoomId' : ?0, 'userId' : {'$ne' : ?1 } } }",
+                    "{ $sort : { '_id' : -1 } }",
+                    "{ $limit : 1 }"
+            }
+    )
+    Optional<ChatMessage> findLatestChatOthers(Long chatRoomId, Long userId);
 
     @Aggregation(
             pipeline = {

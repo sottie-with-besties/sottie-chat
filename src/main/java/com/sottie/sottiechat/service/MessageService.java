@@ -1,7 +1,9 @@
 package com.sottie.sottiechat.service;
 
 import com.sottie.sottiechat.domain.ChatMessage;
+import com.sottie.sottiechat.domain.LastReadStatus;
 import com.sottie.sottiechat.domain.Status;
+import com.sottie.sottiechat.dto.CommonResponse;
 import com.sottie.sottiechat.dto.MessageRequest;
 import com.sottie.sottiechat.dto.MessageResponse;
 import com.sottie.sottiechat.repository.ChatMessageRepository;
@@ -9,9 +11,16 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.amqp.AmqpException;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
+import org.springframework.data.mongodb.core.MongoTemplate;
+import org.springframework.data.mongodb.core.query.Criteria;
+import org.springframework.data.mongodb.core.query.Query;
+import org.springframework.data.mongodb.core.query.Update;
 import org.springframework.stereotype.Service;
 
+import java.time.LocalDateTime;
 import java.util.List;
+
+import static com.sottie.sottiechat.domain.SocketEvent.*;
 
 @Service
 @RequiredArgsConstructor
@@ -19,13 +28,15 @@ import java.util.List;
 public class MessageService {
     private final ChatMessageRepository chatMessageRepository;
     private final RabbitTemplate rabbitTemplate;
+    private final MongoTemplate mongoTemplate;
     private static final String SUBSCRIBED_EXCHANGE_NAME = "sottie.chat.exchange";
     private static final String ENTRANCE_ROUTING_KEY = "enter.room.";
     private static final String CHAT_ROUTING_KEY = "*.room.";
+    private static final String LAST_READ_ROUTING_KEY = "read.room.";
 
     public void enterChatRoom(Long roomId, MessageRequest.Enter request) {
-        if (isAlreadyEnteredChatRoom(roomId, request.getSender().getUserId())) {
-            log.error("채팅방 " + roomId + "에서" + "사용자" + request.getSender().getUserId() + "가 이미 입장함.");
+        if (isAlreadyEnteredChatRoom(roomId, request.getUserId())) {
+            log.error("채팅방 " + roomId + "에서" + "사용자" + request.getUserId() + "가 이미 입장함.");
             throw new IllegalStateException("이미 채팅방에 입장한 사용자입니다.");
         }
 
@@ -33,41 +44,116 @@ public class MessageService {
         sendMessageToSubs(roomId, response, ENTRANCE_ROUTING_KEY);
     }
 
-    public void sendChatMessage(Long roomId, MessageRequest.Chat message) {
+    public void sendChatMessage(Long roomId, MessageRequest.Chat request) {
         /*
             TODO: 허용된 문자 & 형식 검사, 메시지 길이 제한, 도배 & 중복 방지(Rate Limit) -> 후순위
              데이터 암호화 & NoSQL에 대한 SQL Injection 방지 -> 데이터 암호화는 중요할 수 있음
          */
-        if (message.getContents().isBlank()) {
+        if (request.getContents().isBlank()) {
             throw new IllegalStateException("빈 메시지를 전송할 수 없습니다.");
         }
-        MessageResponse.Chat response = MessageResponse.Chat.from(message);
+        MessageResponse.Chat response = MessageResponse.Chat.from(request);
         sendMessageToSubs(roomId, response, CHAT_ROUTING_KEY);
+    }
+
+    public void updateLastReadStatus(Long roomId, MessageRequest.LastRead lastRead) {
+        // 채팅방 접속하는 경우, 최신 채팅 조회
+        if (lastRead.getMessageId() == null) {
+            String latestChatId = getLatestChatId(roomId, lastRead.getUserId());
+            if (latestChatId == null)
+                return;
+            lastRead.setMessageId(latestChatId);
+        }
+
+        // DB에 읽음 상태 업데이트
+        if (!updateLastRead(roomId, lastRead.getMessageId(), lastRead.getUserId())) {
+            log.warn("읽음 처리 요청이 들어왔으나 요청 실패");
+            return;
+        }
+
+        // 읽음 상태 propagate
+        try {
+            MessageResponse.LastRead build = MessageResponse.LastRead.builder()
+                    .lastReadMessageId(lastRead.getMessageId())
+                    .readTimeStamp(LocalDateTime.now().toString())
+                    .userId(lastRead.getUserId()).build();
+            rabbitTemplate.convertAndSend(SUBSCRIBED_EXCHANGE_NAME, LAST_READ_ROUTING_KEY + roomId, new CommonResponse<>(UPDATE_READ_STATUS, build));
+        } catch (AmqpException e) {
+            log.error("[{}] AMQP Protocol Exception (propagation failure]): {}", LAST_READ_ROUTING_KEY, e.getMessage());
+        }
+    }
+
+    public List<LastReadStatus> getReadStatusByChatRoom(Long roomId) {
+        return mongoTemplate.find(new Query(Criteria.where("chatRoomId").is(roomId)), LastReadStatus.class);
     }
 
     private void sendMessageToSubs(Long roomId, MessageResponse.Chat response, String routingKey) {
         Status status = Status.SUCCESS;
+        // 저장하고 저장된 메시지 ID까지 함께 구독자들에게 전파
+        ChatMessage saved = null;
         try {
-            rabbitTemplate.convertAndSend(SUBSCRIBED_EXCHANGE_NAME, routingKey + roomId, response);
+            saved = chatMessageRepository.save(ChatMessage.from(roomId, response, status));
+            response.updateMessageId(saved.getId());
+            rabbitTemplate.convertAndSend(SUBSCRIBED_EXCHANGE_NAME, routingKey + roomId, new CommonResponse<>(SEND_MESSAGE, response));
         } catch (AmqpException e) {
             status = Status.FAIL;
+            if (saved != null) {
+                saved.updateStatus(status);
+                chatMessageRepository.save(saved);
+            }
             log.error("[{}] AMQP Protocol Exception (publish failure): {}", routingKey, e.getMessage());
-        } finally {
-            chatMessageRepository.save(ChatMessage.from(roomId, response, status));
         }
     }
 
-    public List<ChatMessage> getChatMessagesByPaging(Long chatRoomId, String cursor, int size) {
+    public List<MessageResponse.Chat> getChatMessagesByPaging(Long chatRoomId, String cursor, int size) {
         if (size < 1)
             throw new IllegalArgumentException("페이지 개수가 유효하지 않습니다.");
 
         if (cursor == null) // 최초 페이지
-            return chatMessageRepository.findLatestChat(chatRoomId, size);
+            return buildMessages(chatMessageRepository.findLatestChat(chatRoomId, size));
 
-        return chatMessageRepository.findChatByPaging(chatRoomId, cursor, size);
+        return buildMessages(chatMessageRepository.findChatByPaging(chatRoomId, cursor, size));
+    }
+
+    private List<MessageResponse.Chat> buildMessages(List<ChatMessage> chatMessages) {
+        return chatMessages.stream().map((c) -> MessageResponse.Chat.builder()
+                .messageId(c.getId())
+                .contents(c.getContents())
+                .userId(c.getUserId())
+                .timestamp(c.getTimestamp().toString())
+                .messageType(c.getMessageType())
+                .chatType(c.getChatType())
+                .status(c.getStatus()).build()).toList();
     }
 
     private boolean isAlreadyEnteredChatRoom(Long roomId, Long senderId) {
         return !chatMessageRepository.findByChatRoomIdAndSenderIdWithEntrance(roomId, senderId).isEmpty();
+    }
+
+    private String getLatestChatId(Long roomId, Long userId) {
+        return chatMessageRepository.findLatestChatOthers(roomId, userId)
+                .map(ChatMessage::getId)
+                .orElse(null);
+    }
+
+    private boolean updateLastRead(Long chatRoomId, String messageId, Long userId) {
+        // 이미 읽은 처리된 메시지면 무시
+        if (mongoTemplate.exists(new Query(Criteria
+                        .where("chatRoomId").is(chatRoomId)
+                        .and("userId").is(userId)
+                        .and("messageId").is(messageId)),
+                LastReadStatus.class)) {
+            return false;
+        }
+        Query query = new Query(Criteria
+                .where("chatRoomId").is(chatRoomId)
+                .and("userId").is(userId));
+
+        Update update = new Update();
+        LocalDateTime now = LocalDateTime.now();
+        update.set("messageId", messageId);
+        update.set("readTimestamp", now);
+        return mongoTemplate.upsert(query, update, LastReadStatus.class)
+                .wasAcknowledged();
     }
 }
