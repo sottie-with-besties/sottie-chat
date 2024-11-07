@@ -16,33 +16,37 @@ public class ChatMessage {
     @Id
     private String id;
     private Long chatRoomId;
-    private Long senderId;
-    private String content;
+    private Long userId;
+    private String contents;
     private LocalDateTime timestamp;
     private MessageType messageType;
     private Status status;
     private ChatType chatType;
 
     @Builder
-    public ChatMessage(Long chatRoomId, Long senderId, String content, MessageType messageType, LocalDateTime timestamp, Status status, ChatType chatType) {
+    public ChatMessage(Long chatRoomId, Long userId, String contents, MessageType messageType, LocalDateTime timestamp, Status status, ChatType chatType) {
         this.chatRoomId = chatRoomId;
-        this.senderId = senderId;
-        this.content = content;
+        this.userId = userId;
+        this.contents = contents;
         this.messageType = messageType;
         this.timestamp = timestamp;
         this.status = status;
         this.chatType = chatType;
     }
 
-    public static ChatMessage from(Long roomId, MessageResponse.Chat response, Status status){
+    public static ChatMessage from(Long roomId, MessageResponse.Chat response, Status status) {
         return ChatMessage.builder()
                 .chatRoomId(roomId)
-                .senderId(response.getSender().getUserId())
+                .userId(response.getUserId())
                 .chatType(response.getChatType())
                 .messageType(response.getMessageType())
-                .timestamp(LocalDateTime.parse(response.getTimestamp()))
+                .timestamp(LocalDateTime.now())
                 .status(status)
-                .content(response.getContents())
+                .contents(response.getContents())
                 .build();
+    }
+
+    public void updateStatus(Status status) {
+        this.status = status;
     }
 }

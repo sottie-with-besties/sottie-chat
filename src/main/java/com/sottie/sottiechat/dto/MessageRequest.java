@@ -14,7 +14,7 @@ public class MessageRequest {
     @NoArgsConstructor
     @Builder
     public static class Enter {
-        private UserInfo sender;
+        private Long userId;
     }
 
     @Data
@@ -22,9 +22,18 @@ public class MessageRequest {
     @NoArgsConstructor
     @Builder
     public static class Chat {
-        private UserInfo sender;
+        private Long userId;
         private String contents;
         private MessageType messageType;
         private ChatType chatType;
+    }
+
+    @Data
+    @AllArgsConstructor
+    @NoArgsConstructor
+    @Builder
+    public static class LastRead {
+        private Long userId;
+        private String messageId;
     }
 }

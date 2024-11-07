@@ -1,14 +1,12 @@
 package com.sottie.sottiechat.controller;
 
-import com.sottie.sottiechat.domain.ChatMessage;
+import com.sottie.sottiechat.domain.LastReadStatus;
+import com.sottie.sottiechat.dto.MessageResponse;
 import com.sottie.sottiechat.service.MessageService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
@@ -18,12 +16,20 @@ public class ChatApiController {
     private final MessageService messageService;
 
     @GetMapping("/api/chats/{chatRoomId}")
-    public ResponseEntity<List<ChatMessage>> getChatMessageByPaging(
+    public ResponseEntity<List<MessageResponse.Chat>> getChatMessageByPaging(
             @PathVariable("chatRoomId") Long chatRoomId,
             @RequestParam(value = "cursor", required = false) String cursor,
             @RequestParam("size") int size
     ) {
         return ResponseEntity.status(HttpStatus.OK)
                 .body(messageService.getChatMessagesByPaging(chatRoomId, cursor, size));
+    }
+
+    @GetMapping("/api/chats/readStatus/{chatRoomId}")
+    public ResponseEntity<List<LastReadStatus>> getReadStatusByChatRoom(
+            @PathVariable("chatRoomId") Long chatRoomId
+    ) {
+        return ResponseEntity.status(HttpStatus.OK)
+                .body(messageService.getReadStatusByChatRoom(chatRoomId));
     }
 }

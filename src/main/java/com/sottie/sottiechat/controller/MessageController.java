@@ -22,4 +22,10 @@ public class MessageController {
     public void sendChatMessage(@DestinationVariable("roomId") Long roomId, @Payload MessageRequest.Chat message) {
         messageService.sendChatMessage(roomId, message);
     }
+
+    // DB에 읽음 처리가 다 끝났을 때에 이벤트 처리
+    @MessageMapping("chat.read.{roomId}")
+    public void updateLastReadMessage(@DestinationVariable("roomId") Long roomId, @Payload MessageRequest.LastRead lastRead) {
+        messageService.updateLastReadStatus(roomId, lastRead);
+    }
 }
