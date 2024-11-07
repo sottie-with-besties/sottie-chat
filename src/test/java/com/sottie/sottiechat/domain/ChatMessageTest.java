@@ -7,8 +7,6 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 
-import static org.junit.jupiter.api.Assertions.*;
-
 @SpringBootTest
 class ChatMessageTest {
 
@@ -16,24 +14,24 @@ class ChatMessageTest {
     ChatMessageRepository chatMessageRepository;
 
     @AfterEach
-    void clean(){
+    void clean() {
         chatMessageRepository.deleteAll();
     }
 
     @Test
-    void insertionTest(){
+    void insertionTest() {
         ChatMessage message = ChatMessage.builder()
                 .chatRoomId(1L)
-                .senderId(2L)
-                .content("Hello World")
+                .userId(2L)
+                .contents("Hello World")
                 .messageType(MessageType.TEXT)
                 .build();
 
         ChatMessage saved = chatMessageRepository.save(message);
 
         ChatMessage chatMessage = chatMessageRepository.findById(saved.getId()).get();
-        Assertions.assertThat(chatMessage.getContent()).isEqualTo("Hello World");
-        Assertions.assertThat(chatMessage.getSenderId()).isEqualTo(2L);
+        Assertions.assertThat(chatMessage.getContents()).isEqualTo("Hello World");
+        Assertions.assertThat(chatMessage.getUserId()).isEqualTo(2L);
         Assertions.assertThat(chatMessage.getChatRoomId()).isEqualTo(1L);
         Assertions.assertThat(chatMessage.getMessageType()).isEqualTo(MessageType.TEXT);
         Assertions.assertThat(chatMessage.getStatus()).isEqualTo(Status.SUCCESS);
