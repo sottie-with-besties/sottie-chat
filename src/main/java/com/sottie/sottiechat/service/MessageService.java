@@ -1,8 +1,6 @@
 package com.sottie.sottiechat.service;
 
-import com.sottie.sottiechat.domain.ChatMessage;
-import com.sottie.sottiechat.domain.LastReadStatus;
-import com.sottie.sottiechat.domain.Status;
+import com.sottie.sottiechat.domain.*;
 import com.sottie.sottiechat.dto.CommonResponse;
 import com.sottie.sottiechat.dto.MessageRequest;
 import com.sottie.sottiechat.dto.MessageResponse;
@@ -35,25 +33,39 @@ public class MessageService {
     private static final String LAST_READ_ROUTING_KEY = "read.room.";
 
     public void enterChatRoom(Long roomId, MessageRequest.Enter request) {
+        log.info("[채팅방 {}번] 사용자 {} 접속", roomId, request.getUserId());
         if (isAlreadyEnteredChatRoom(roomId, request.getUserId())) {
-            log.error("채팅방 " + roomId + "에서" + "사용자" + request.getUserId() + "가 이미 입장함.");
-            throw new IllegalStateException("이미 채팅방에 입장한 사용자입니다.");
+            return;
         }
-
         MessageResponse.Chat response = MessageResponse.Chat.from(request);
-        sendMessageToSubs(roomId, response, ENTRANCE_ROUTING_KEY);
+        sendMessageToSubs(roomId, response, ENTRANCE_ROUTING_KEY, INITIAL_ENTRANCE);
     }
 
     public void sendChatMessage(Long roomId, MessageRequest.Chat request) {
-        /*
-            TODO: 허용된 문자 & 형식 검사, 메시지 길이 제한, 도배 & 중복 방지(Rate Limit) -> 후순위
-             데이터 암호화 & NoSQL에 대한 SQL Injection 방지 -> 데이터 암호화는 중요할 수 있음
-         */
         if (request.getContents().isBlank()) {
             throw new IllegalStateException("빈 메시지를 전송할 수 없습니다.");
         }
         MessageResponse.Chat response = MessageResponse.Chat.from(request);
-        sendMessageToSubs(roomId, response, CHAT_ROUTING_KEY);
+        sendMessageToSubs(roomId, response, CHAT_ROUTING_KEY, SEND_MESSAGE);
+    }
+
+    public void sendMediaMessage(Long roomId, Long userId, String mediaUrl) {
+        sendMessageToSubs(roomId, MessageResponse.Chat.from(MessageRequest.Chat.builder()
+                .messageType(getMessageTypeByUrl(mediaUrl))
+                .chatType(ChatType.CHAT)
+                .contents(mediaUrl)
+                .userId(userId)
+                .build()), CHAT_ROUTING_KEY, SEND_MESSAGE);
+    }
+
+    private MessageType getMessageTypeByUrl(String mediaUrl) {
+        if (mediaUrl.contains("photos"))
+            return MessageType.IMAGE;
+        if (mediaUrl.contains("videos"))
+            return MessageType.VIDEO;
+        if (mediaUrl.contains("files"))
+            return MessageType.FILE;
+        return MessageType.TEXT;
     }
 
     public void updateLastReadStatus(Long roomId, MessageRequest.LastRead lastRead) {
@@ -64,10 +76,17 @@ public class MessageService {
                 return;
             lastRead.setMessageId(latestChatId);
         }
+        ChatMessage message = chatMessageRepository.findById(lastRead.getMessageId()).orElseThrow(() -> new IllegalArgumentException("존재하지 않는 메시지입니다."));
+
+        // 일반 채팅이 아닌 경우 읽음 처리 무시
+        if (message.getChatType() != ChatType.CHAT) {
+            log.warn("[메시지 읽음 처리]: ChatType이 CHAT이 아님");
+            return;
+        }
 
         // DB에 읽음 상태 업데이트
         if (!updateLastRead(roomId, lastRead.getMessageId(), lastRead.getUserId())) {
-            log.warn("읽음 처리 요청이 들어왔으나 요청 실패");
+            log.warn("[메시지 읽음 처리]: DB에 상태 업데이트 실패");
             return;
         }
 
@@ -87,14 +106,14 @@ public class MessageService {
         return mongoTemplate.find(new Query(Criteria.where("chatRoomId").is(roomId)), LastReadStatus.class);
     }
 
-    private void sendMessageToSubs(Long roomId, MessageResponse.Chat response, String routingKey) {
+    private void sendMessageToSubs(Long roomId, MessageResponse.Chat response, String routingKey, SocketEvent event) {
         Status status = Status.SUCCESS;
         // 저장하고 저장된 메시지 ID까지 함께 구독자들에게 전파
         ChatMessage saved = null;
         try {
             saved = chatMessageRepository.save(ChatMessage.from(roomId, response, status));
             response.updateMessageId(saved.getId());
-            rabbitTemplate.convertAndSend(SUBSCRIBED_EXCHANGE_NAME, routingKey + roomId, new CommonResponse<>(SEND_MESSAGE, response));
+            rabbitTemplate.convertAndSend(SUBSCRIBED_EXCHANGE_NAME, routingKey + roomId, new CommonResponse<>(event, response));
         } catch (AmqpException e) {
             status = Status.FAIL;
             if (saved != null) {
@@ -105,14 +124,15 @@ public class MessageService {
         }
     }
 
-    public List<MessageResponse.Chat> getChatMessagesByPaging(Long chatRoomId, String cursor, int size) {
+    public List<MessageResponse.Chat> getChatMessagesByPaging(Long roomId, String cursor, int size) {
         if (size < 1)
             throw new IllegalArgumentException("페이지 개수가 유효하지 않습니다.");
 
+        // TODO: 일별로 response 정렬하기
         if (cursor == null) // 최초 페이지
-            return buildMessages(chatMessageRepository.findLatestChat(chatRoomId, size));
+            return buildMessages(chatMessageRepository.findLatestChat(roomId, size));
 
-        return buildMessages(chatMessageRepository.findChatByPaging(chatRoomId, cursor, size));
+        return buildMessages(chatMessageRepository.findChatByPaging(roomId, cursor, size));
     }
 
     private List<MessageResponse.Chat> buildMessages(List<ChatMessage> chatMessages) {
@@ -136,17 +156,18 @@ public class MessageService {
                 .orElse(null);
     }
 
-    private boolean updateLastRead(Long chatRoomId, String messageId, Long userId) {
+    private boolean updateLastRead(Long roomId, String messageId, Long userId) {
         // 이미 읽은 처리된 메시지면 무시
         if (mongoTemplate.exists(new Query(Criteria
-                        .where("chatRoomId").is(chatRoomId)
+                        .where("chatRoomId").is(roomId)
                         .and("userId").is(userId)
                         .and("messageId").is(messageId)),
                 LastReadStatus.class)) {
+            log.warn("[메시지 읽음 처리]: 이미 읽은 메시지");
             return false;
         }
         Query query = new Query(Criteria
-                .where("chatRoomId").is(chatRoomId)
+                .where("chatRoomId").is(roomId)
                 .and("userId").is(userId));
 
         Update update = new Update();

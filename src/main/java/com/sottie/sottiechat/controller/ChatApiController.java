@@ -2,11 +2,13 @@ package com.sottie.sottiechat.controller;
 
 import com.sottie.sottiechat.domain.LastReadStatus;
 import com.sottie.sottiechat.dto.MessageResponse;
+import com.sottie.sottiechat.service.MediaService;
 import com.sottie.sottiechat.service.MessageService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 
@@ -14,22 +16,33 @@ import java.util.List;
 @RequiredArgsConstructor
 public class ChatApiController {
     private final MessageService messageService;
+    private final MediaService mediaService;
 
-    @GetMapping("/api/chats/{chatRoomId}")
+    @GetMapping("/api/chat/{roomId}")
     public ResponseEntity<List<MessageResponse.Chat>> getChatMessageByPaging(
-            @PathVariable("chatRoomId") Long chatRoomId,
+            @PathVariable("roomId") Long roomId,
             @RequestParam(value = "cursor", required = false) String cursor,
             @RequestParam("size") int size
     ) {
         return ResponseEntity.status(HttpStatus.OK)
-                .body(messageService.getChatMessagesByPaging(chatRoomId, cursor, size));
+                .body(messageService.getChatMessagesByPaging(roomId, cursor, size));
     }
 
-    @GetMapping("/api/chats/readStatus/{chatRoomId}")
+    @GetMapping("/api/chat/{roomId}/readStatus")
     public ResponseEntity<List<LastReadStatus>> getReadStatusByChatRoom(
-            @PathVariable("chatRoomId") Long chatRoomId
+            @PathVariable("roomId") Long roomId
     ) {
         return ResponseEntity.status(HttpStatus.OK)
-                .body(messageService.getReadStatusByChatRoom(chatRoomId));
+                .body(messageService.getReadStatusByChatRoom(roomId));
+    }
+
+    @PostMapping(value = "/api/chat/{roomId}/media/{userId}", consumes = {"multipart/form-data"})
+    public ResponseEntity<Void> uploadMediaFile(
+            @PathVariable("roomId") Long roomId,
+            @PathVariable("userId") Long userId, // TODO: JWT 헤더로 변경
+            @RequestPart(value = "files") List<MultipartFile> files
+    ) {
+        mediaService.uploadMediaFiles(roomId, userId, files);
+        return ResponseEntity.ok().build();
     }
 }

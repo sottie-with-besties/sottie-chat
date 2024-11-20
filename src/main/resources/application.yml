@@ -9,3 +9,26 @@ spring:
     mongodb:
       uri: mongodb://localhost:27017
       database: sottie-chat
+  servlet:
+    multipart:
+      max-file-size: 100MB
+      max-request-size: 200MB
+
+server:
+  compression:
+    enabled: true
+    mime-types: text/html,text/plain,text/css,application/javascript,application/json, application/zip, application/octet-stream
+
+cloud:
+  aws:
+    s3:
+      bucket: ${S3_BUCKET_NAME}
+    credentials:
+      access-key: ${AWS_ACCESS_KEY}
+      secret_key: ${AWS_SECRET_KEY}
+    region:
+      static: ${AWS_REGION}
+      auto: false
+    stack:
+      auto: false
+
