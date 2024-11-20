@@ -9,6 +9,7 @@ import lombok.NoArgsConstructor;
 @Getter
 @NoArgsConstructor
 public enum SocketEvent {
-    SEND_MESSAGE,
-    UPDATE_READ_STATUS
+    INITIAL_ENTRANCE, // 채팅방 최초 입장
+    SEND_MESSAGE, // 메시지 전송
+    UPDATE_READ_STATUS // 읽음 상태 업데이트
 }
