@@ -42,7 +42,7 @@ public class MessageResponse {
                     .userId(chat.getUserId())
                     .messageId(null)
                     .contents(chat.getContents())
-                    .messageType(MessageType.TEXT)
+                    .messageType(chat.getMessageType())
                     .chatType(ChatType.CHAT)
                     .status(Status.SUCCESS)
                     .timestamp(LocalDateTime.now().toString())
