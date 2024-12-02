@@ -26,7 +26,9 @@ public class StompWebSocketConfig implements WebSocketMessageBrokerConfigurer {
     public void configureMessageBroker(MessageBrokerRegistry registry) {
         registry.setPathMatcher(new AntPathMatcher("."));
         registry.setApplicationDestinationPrefixes("/pub");
-        registry.enableStompBrokerRelay("/queue", "/topic", "/exchange", "/amq/queue");
+        registry.enableStompBrokerRelay("/queue", "/topic", "/exchange", "/amq/queue")
+                .setSystemHeartbeatSendInterval(30000) // Heartbeat 전송 주기
+                .setSystemHeartbeatReceiveInterval(30000); // Heartbeat 수신 주기
     }
 
     @Override
