@@ -34,7 +34,7 @@ public class ChatMessage {
         this.chatType = chatType;
     }
 
-    public static ChatMessage from(Long roomId, MessageResponse.Chat response, Status status) {
+    public static ChatMessage from(Long roomId, MessageResponse.Chat response, Status status, String encodedContents) {
         return ChatMessage.builder()
                 .chatRoomId(roomId)
                 .userId(response.getUserId())
@@ -42,7 +42,7 @@ public class ChatMessage {
                 .messageType(response.getMessageType())
                 .timestamp(LocalDateTime.now())
                 .status(status)
-                .contents(response.getContents())
+                .contents(encodedContents)
                 .build();
     }
 

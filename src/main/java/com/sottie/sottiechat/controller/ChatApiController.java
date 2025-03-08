@@ -3,7 +3,7 @@ package com.sottie.sottiechat.controller;
 import com.sottie.sottiechat.domain.LastReadStatus;
 import com.sottie.sottiechat.dto.MessageResponse;
 import com.sottie.sottiechat.service.MediaService;
-import com.sottie.sottiechat.service.MessageService;
+import com.sottie.sottiechat.service.MessageQueryService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -15,7 +15,7 @@ import java.util.List;
 @RestController
 @RequiredArgsConstructor
 public class ChatApiController {
-    private final MessageService messageService;
+    private final MessageQueryService messageQueryService;
     private final MediaService mediaService;
 
     @GetMapping("/api/chat/{roomId}")
@@ -25,7 +25,7 @@ public class ChatApiController {
             @RequestParam("size") int size
     ) {
         return ResponseEntity.status(HttpStatus.OK)
-                .body(messageService.getChatMessagesByPaging(roomId, cursor, size));
+                .body(messageQueryService.getChatMessagesByPaging(roomId, cursor, size));
     }
 
     @GetMapping("/api/chat/{roomId}/readStatus")
@@ -33,7 +33,7 @@ public class ChatApiController {
             @PathVariable("roomId") Long roomId
     ) {
         return ResponseEntity.status(HttpStatus.OK)
-                .body(messageService.getReadStatusByChatRoom(roomId));
+                .body(messageQueryService.getReadStatusByChatRoom(roomId));
     }
 
     @PostMapping(value = "/api/chat/{roomId}/media/{userId}", consumes = {"multipart/form-data"})
