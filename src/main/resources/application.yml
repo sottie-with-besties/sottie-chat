@@ -1,13 +1,13 @@
 spring:
   rabbitmq:
-    host: localhost
+    host: ${RABBITMQ_HOST}
     port: 5672
-    username: guest
-    password: guest
+    username: ${RABBITMQ_USER}
+    password: ${RABBITMQ_PASS}
     virtualHost: /
   data:
     mongodb:
-      uri: mongodb://localhost:27017
+      uri: ${DATASOURCE_URL}
       database: sottie-chat
   servlet:
     multipart:
