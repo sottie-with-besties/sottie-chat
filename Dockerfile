@@ -1,5 +1,5 @@
-FROM openjdk:17-jdk-slim
+FROM openjdk:17-alpine
 
-COPY target/sottie-chat.jar app.jar
+COPY /build/libs/sottiechat-0.0.1-SNAPSHOT.jar app.jar
 
 ENTRYPOINT ["java", "-jar", "/app.jar"]
