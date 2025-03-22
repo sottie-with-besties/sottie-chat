@@ -8,7 +8,6 @@ spring:
   data:
     mongodb:
       uri: ${DATASOURCE_URL}
-      database: sottie-chat
   servlet:
     multipart:
       max-file-size: 100MB
