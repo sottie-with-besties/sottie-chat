@@ -1,7 +1,7 @@
 package com.sottie.sottiechat.controller;
 
 import com.sottie.sottiechat.domain.LastReadStatus;
-import com.sottie.sottiechat.dto.MessageResponse;
+import com.sottie.sottiechat.dto.ChatMessageDateGroup;
 import com.sottie.sottiechat.service.MediaService;
 import com.sottie.sottiechat.service.MessageQueryService;
 import lombok.RequiredArgsConstructor;
@@ -19,13 +19,13 @@ public class ChatApiController {
     private final MediaService mediaService;
 
     @GetMapping("/api/chat/{roomId}")
-    public ResponseEntity<List<MessageResponse.Chat>> getChatMessageByPaging(
+    public ResponseEntity<List<ChatMessageDateGroup>> getChatMessageByPaging(
             @PathVariable("roomId") Long roomId,
             @RequestParam(value = "cursor", required = false) String cursor,
-            @RequestParam("size") int size
+            @RequestParam(value = "userId") Long userId // 조회 대상자, TODO: 토큰 헤더로 변경
     ) {
         return ResponseEntity.status(HttpStatus.OK)
-                .body(messageQueryService.getChatMessagesByPaging(roomId, cursor, size));
+                .body(messageQueryService.getChatMessagesByPaging(userId, roomId, cursor, true));
     }
 
     @GetMapping("/api/chat/{roomId}/readStatus")

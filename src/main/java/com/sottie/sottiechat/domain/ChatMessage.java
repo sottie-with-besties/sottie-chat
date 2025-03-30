@@ -15,7 +15,7 @@ import java.time.LocalDateTime;
 public class ChatMessage {
     @Id
     private String id;
-    private Long chatRoomId;
+    private Long roomId;
     private Long userId;
     private String contents;
     private LocalDateTime timestamp;
@@ -24,8 +24,8 @@ public class ChatMessage {
     private ChatType chatType;
 
     @Builder
-    public ChatMessage(Long chatRoomId, Long userId, String contents, MessageType messageType, LocalDateTime timestamp, Status status, ChatType chatType) {
-        this.chatRoomId = chatRoomId;
+    public ChatMessage(Long roomId, Long userId, String contents, MessageType messageType, LocalDateTime timestamp, Status status, ChatType chatType) {
+        this.roomId = roomId;
         this.userId = userId;
         this.contents = contents;
         this.messageType = messageType;
@@ -36,7 +36,7 @@ public class ChatMessage {
 
     public static ChatMessage from(Long roomId, MessageResponse.Chat response, Status status, String encodedContents) {
         return ChatMessage.builder()
-                .chatRoomId(roomId)
+                .roomId(roomId)
                 .userId(response.getUserId())
                 .chatType(response.getChatType())
                 .messageType(response.getMessageType())
@@ -48,5 +48,9 @@ public class ChatMessage {
 
     public void updateStatus(Status status) {
         this.status = status;
+    }
+
+    public void updateContents(String newContents) {
+        this.contents = newContents;
     }
 }
