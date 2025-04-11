@@ -1,6 +1,6 @@
 package com.sottie.sottiechat.dto;
 
-import com.sottie.sottiechat.domain.ChatType;
+import com.sottie.sottiechat.domain.EventType;
 import com.sottie.sottiechat.domain.MessageType;
 import com.sottie.sottiechat.domain.Status;
 import lombok.AllArgsConstructor;
@@ -22,16 +22,16 @@ public class MessageResponse {
         private String contents;
         private String timestamp;
         private MessageType messageType;
-        private ChatType chatType;
+        private EventType eventType;
         private Status status;
 
-        public static MessageResponse.Chat from(MessageRequest.Enter enter) {
+        public static MessageResponse.Chat from(Long userId, String contents, EventType eventType) {
             return Chat.builder()
-                    .userId(enter.getUserId())
+                    .userId(userId)
                     .messageId(null)
-                    .contents(enter.getUserId() + "님이 채팅방에 참여했습니다.") // TODO: Redis 캐시 또는 RDB로부터 유저 정보 제대로 조회해오기
+                    .contents(contents) // TODO: Redis 캐시 또는 RDB로부터 유저 정보 제대로 조회해오기
                     .messageType(MessageType.TEXT)
-                    .chatType(ChatType.ENTRANCE)
+                    .eventType(eventType)
                     .status(Status.SUCCESS)
                     .timestamp(LocalDateTime.now().toString())
                     .build();
@@ -43,7 +43,7 @@ public class MessageResponse {
                     .messageId(null)
                     .contents(chat.getContents())
                     .messageType(chat.getMessageType())
-                    .chatType(ChatType.CHAT)
+                    .eventType(EventType.CHAT)
                     .status(Status.SUCCESS)
                     .timestamp(LocalDateTime.now().toString())
                     .build();

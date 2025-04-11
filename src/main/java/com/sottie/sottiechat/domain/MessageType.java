@@ -7,5 +7,18 @@ public enum MessageType {
     TEXT,
     IMAGE,
     VIDEO,
-    FILE
+    FILE,
+    EMOTICON;
+
+    public static MessageType getMessageTypeByUrl(String mediaUrl) {
+        if (mediaUrl.contains("photos"))
+            return IMAGE;
+        if (mediaUrl.contains("videos"))
+            return VIDEO;
+        if (mediaUrl.contains("files"))
+            return FILE;
+        if (mediaUrl.contains("emoticon"))
+            return EMOTICON;
+        return TEXT;
+    }
 }

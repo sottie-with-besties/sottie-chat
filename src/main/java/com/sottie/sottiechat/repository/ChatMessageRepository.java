@@ -13,8 +13,8 @@ import java.util.Optional;
 @Repository
 public interface ChatMessageRepository extends MongoRepository<ChatMessage, String> {
 
-    @Query("{'roomId' : ?0, 'userId' : ?1, 'chatType' : 'ENTRANCE'}")
-    List<ChatMessage> findByChatRoomIdAndSenderIdWithEntrance(Long roomId, Long senderId);
+    @Query("{'roomId' : ?0, 'userId' : ?1, 'eventType' : 'ENTRANCE'}")
+    List<ChatMessage> findByChatRoomIdAndUserIdWithEntrance(Long roomId, Long userId);
 
     @Aggregation(
             pipeline = {

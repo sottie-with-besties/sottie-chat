@@ -33,13 +33,21 @@ public class MessageService {
     private static final String CHAT_ROUTING_KEY = "*.room.";
     private static final String LAST_READ_ROUTING_KEY = "read.room.";
 
-    public void enterChatRoom(Long roomId, MessageRequest.Enter request) {
-        log.info("[채팅방 {}번] 사용자 {} 접속", roomId, request.getUserId());
-        if (messageQueryService.isAlreadyEnteredChatRoom(roomId, request.getUserId())) {
+    public void enterChatRoom(Long roomId, Long userId) {
+        log.info("[채팅방 {}번] 사용자 {} 접속", roomId, userId);
+        if (messageQueryService.isAlreadyEnteredChatRoom(roomId, userId)) { // 최초 접속이 있는 상태라면
+            MessageResponse.Chat response = MessageResponse.Chat.from(userId, null, EventType.CHAT_IN);
+            propagateMessageToSubs(roomId, response, ENTRANCE_ROUTING_KEY, CHAT_ROOM_IN);
             return;
         }
-        MessageResponse.Chat response = MessageResponse.Chat.from(request);
-        sendMessageToSubs(roomId, response, ENTRANCE_ROUTING_KEY, INITIAL_ENTRANCE);
+        MessageResponse.Chat response = MessageResponse.Chat.from(userId, userId + "님이 채팅방에 입장했습니다.", EventType.ENTRANCE);
+        propagateMessageToSubs(roomId, response, ENTRANCE_ROUTING_KEY, INITIAL_ENTRANCE);
+    }
+
+    public void exitChatRoom(Long roomId, Long userId) {
+        // TODO: 완전 퇴장 처리 구현
+        MessageResponse.Chat response = MessageResponse.Chat.from(userId, null, EventType.CHAT_OUT);
+        propagateMessageToSubs(roomId, response, CHAT_ROUTING_KEY, CHAT_ROOM_OUT);
     }
 
     public void sendChatMessage(Long roomId, MessageRequest.Chat request) {
@@ -47,26 +55,16 @@ public class MessageService {
             throw new IllegalStateException("빈 메시지를 전송할 수 없습니다.");
         }
         MessageResponse.Chat response = MessageResponse.Chat.from(request);
-        sendMessageToSubs(roomId, response, CHAT_ROUTING_KEY, SEND_MESSAGE);
+        propagateMessageToSubs(roomId, response, CHAT_ROUTING_KEY, SEND_MESSAGE);
     }
 
     public void sendMediaMessage(Long roomId, Long userId, String mediaUrl) {
-        sendMessageToSubs(roomId, MessageResponse.Chat.from(MessageRequest.Chat.builder()
-                .messageType(getMessageTypeByUrl(mediaUrl))
-                .chatType(ChatType.CHAT)
-                .contents(mediaUrl)
+        propagateMessageToSubs(roomId, MessageResponse.Chat.from(MessageRequest.Chat.builder()
                 .userId(userId)
+                .messageType(MessageType.getMessageTypeByUrl(mediaUrl))
+                .eventType(EventType.CHAT)
+                .contents(mediaUrl)
                 .build()), CHAT_ROUTING_KEY, SEND_MESSAGE);
-    }
-
-    private MessageType getMessageTypeByUrl(String mediaUrl) {
-        if (mediaUrl.contains("photos"))
-            return MessageType.IMAGE;
-        if (mediaUrl.contains("videos"))
-            return MessageType.VIDEO;
-        if (mediaUrl.contains("files"))
-            return MessageType.FILE;
-        return MessageType.TEXT;
     }
 
     public void updateLastReadStatus(Long roomId, MessageRequest.LastRead lastRead) {
@@ -79,7 +77,7 @@ public class MessageService {
         }
         ChatMessage message = messageQueryService.getMessage(lastRead.getMessageId());
         // 일반 채팅이 아닌 경우 읽음 처리 무시
-        if (message.getChatType() != ChatType.CHAT) {
+        if (message.getEventType() != EventType.CHAT) {
             log.warn("[메시지 읽음 처리]: ChatType이 CHAT이 아님");
             return;
         }
@@ -96,28 +94,28 @@ public class MessageService {
                     .lastReadMessageId(lastRead.getMessageId())
                     .readTimeStamp(LocalDateTime.now().toString())
                     .userId(lastRead.getUserId()).build();
-            rabbitTemplate.convertAndSend(SUBSCRIBED_EXCHANGE_NAME, LAST_READ_ROUTING_KEY + roomId, new CommonResponse<>(UPDATE_READ_STATUS, build));
+            rabbitTemplate.convertAndSend(SUBSCRIBED_EXCHANGE_NAME, LAST_READ_ROUTING_KEY + roomId, new CommonResponse<>(UPDATE_READ_STATUS, roomId, build));
         } catch (AmqpException e) {
             log.error("[{}] AMQP Protocol Exception (propagation failure]): {}", LAST_READ_ROUTING_KEY, e.getMessage());
         }
     }
 
-    private void sendMessageToSubs(Long roomId, MessageResponse.Chat response, String routingKey, SocketEvent event) {
-        Status status = Status.SUCCESS;
-        // 저장하고 저장된 메시지 ID까지 함께 구독자들에게 전파
+    private void propagateMessageToSubs(Long roomId, MessageResponse.Chat response, String routingKey, SocketEvent event) {
         ChatMessage saved = null;
         try {
-            String encoded = cryptoService.encodeAES(response.getContents());
-            saved = chatMessageRepository.save(ChatMessage.from(roomId, response, status, encoded));
+            saved = chatMessageRepository.save(ChatMessage.from(roomId, response, response.getContents() != null ? cryptoService.encodeAES(response.getContents()) : null));
             response.updateMessageId(saved.getId());
-            rabbitTemplate.convertAndSend(SUBSCRIBED_EXCHANGE_NAME, routingKey + roomId, new CommonResponse<>(event, response));
+
+            rabbitTemplate.convertAndSend(SUBSCRIBED_EXCHANGE_NAME, routingKey + roomId, new CommonResponse<>(event, roomId, response));
         } catch (AmqpException e) {
-            status = Status.FAIL;
             if (saved != null) {
-                saved.updateStatus(status);
+                saved.updateStatus(Status.FAIL);
                 chatMessageRepository.save(saved);
             }
             log.error("[{}] AMQP Protocol Exception (publish failure): {}", routingKey, e.getMessage());
+        } catch (Exception e) {
+            log.error("[{}] Exception occurred: {}", routingKey, e.getMessage());
+            throw new IllegalStateException("메시지 전파 중 예기치 못한 오류가 발생했습니다.");
         }
     }
 

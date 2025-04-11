@@ -21,27 +21,27 @@ public class ChatMessage {
     private LocalDateTime timestamp;
     private MessageType messageType;
     private Status status;
-    private ChatType chatType;
+    private EventType eventType;
 
     @Builder
-    public ChatMessage(Long roomId, Long userId, String contents, MessageType messageType, LocalDateTime timestamp, Status status, ChatType chatType) {
+    public ChatMessage(Long roomId, Long userId, String contents, MessageType messageType, LocalDateTime timestamp, Status status, EventType eventType) {
         this.roomId = roomId;
         this.userId = userId;
         this.contents = contents;
         this.messageType = messageType;
         this.timestamp = timestamp;
         this.status = status;
-        this.chatType = chatType;
+        this.eventType = eventType;
     }
 
-    public static ChatMessage from(Long roomId, MessageResponse.Chat response, Status status, String encodedContents) {
+    public static ChatMessage from(Long roomId, MessageResponse.Chat response, String encodedContents) {
         return ChatMessage.builder()
                 .roomId(roomId)
                 .userId(response.getUserId())
-                .chatType(response.getChatType())
+                .eventType(response.getEventType())
                 .messageType(response.getMessageType())
                 .timestamp(LocalDateTime.now())
-                .status(status)
+                .status(response.getStatus())
                 .contents(encodedContents)
                 .build();
     }

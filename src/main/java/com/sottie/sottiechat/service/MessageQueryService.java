@@ -38,7 +38,7 @@ public class MessageQueryService {
         chatMessages.stream()
                 .flatMap(dateGroup -> dateGroup.getChats().stream())
                 .filter(chatMessage -> useDecode)
-                .forEach(chatMessage -> chatMessage.updateContents(cryptoService.decodeAES(chatMessage.getContents())));
+                .forEach(chatMessage -> chatMessage.updateContents(chatMessage.getContents() != null ? cryptoService.decodeAES(chatMessage.getContents()) : null));
         return chatMessages;
     }
 
@@ -53,6 +53,6 @@ public class MessageQueryService {
     }
 
     public boolean isAlreadyEnteredChatRoom(Long roomId, Long senderId) {
-        return !chatMessageRepository.findByChatRoomIdAndSenderIdWithEntrance(roomId, senderId).isEmpty();
+        return !chatMessageRepository.findByChatRoomIdAndUserIdWithEntrance(roomId, senderId).isEmpty();
     }
 }
