@@ -13,12 +13,7 @@ import org.springframework.stereotype.Controller;
 public class MessageController {
     private final MessageService messageService;
 
-    @MessageMapping("chat.enter.{roomId}")
-    public void enterChatRoom(@DestinationVariable("roomId") Long roomId, @Payload MessageRequest.Enter message) {
-        messageService.enterChatRoom(roomId, message);
-    }
-
-    @MessageMapping("chat.talk.{roomId}")
+    @MessageMapping("chat.send.{roomId}")
     public void sendChatMessage(@DestinationVariable("roomId") Long roomId, @Payload MessageRequest.Chat message) {
         messageService.sendChatMessage(roomId, message);
     }
