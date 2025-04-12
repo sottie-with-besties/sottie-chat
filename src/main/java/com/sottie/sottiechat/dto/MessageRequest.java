@@ -2,6 +2,7 @@ package com.sottie.sottiechat.dto;
 
 import com.sottie.sottiechat.domain.EventType;
 import com.sottie.sottiechat.domain.MessageType;
+import com.sottie.sottiechat.domain.ResendType;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -27,5 +28,14 @@ public class MessageRequest {
     public static class LastRead {
         private Long userId;
         private String messageId;
+    }
+
+    @Data
+    @AllArgsConstructor
+    @NoArgsConstructor
+    @Builder
+    public static class Resend {
+        private String messageId;
+        private ResendType resendType;
     }
 }

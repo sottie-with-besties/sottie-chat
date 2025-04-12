@@ -1,6 +1,7 @@
 package com.sottie.sottiechat.config;
 
 import com.sottie.sottiechat.dto.SessionMeta;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
 import java.util.Collections;
@@ -13,6 +14,7 @@ import java.util.concurrent.ConcurrentHashMap;
  * Chat Room Session Management Registry In Memory
  */
 @Component
+@Slf4j
 public class InMemorySessionRegistry implements SessionRegistry {
 
     /*
@@ -29,6 +31,7 @@ public class InMemorySessionRegistry implements SessionRegistry {
     @Override
     public void addSession(Long roomId, Long userId, String sessionId) {
         if (isUserInRoom(roomId, userId)) {
+            log.info("[세션 등록] 이미 유저가 접속 중입니다.");
             throw new IllegalStateException("이미 채팅방에 접속 중인 유저입니다.");
         }
         roomUserSessionMap

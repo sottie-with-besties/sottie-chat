@@ -2,8 +2,10 @@ package com.sottie.sottiechat.controller;
 
 import com.sottie.sottiechat.domain.LastReadStatus;
 import com.sottie.sottiechat.dto.ChatMessageDateGroup;
+import com.sottie.sottiechat.dto.MessageRequest;
 import com.sottie.sottiechat.service.MediaService;
 import com.sottie.sottiechat.service.MessageQueryService;
+import com.sottie.sottiechat.service.MessageService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -16,6 +18,7 @@ import java.util.List;
 @RequiredArgsConstructor
 public class ChatApiController {
     private final MessageQueryService messageQueryService;
+    private final MessageService messageService;
     private final MediaService mediaService;
 
     @GetMapping("/api/chat/{roomId}")
@@ -43,6 +46,16 @@ public class ChatApiController {
             @RequestPart(value = "files") List<MultipartFile> files
     ) {
         mediaService.uploadMediaFiles(roomId, userId, files);
+        return ResponseEntity.ok().build();
+    }
+
+    @PostMapping("/api/chat/{roomId}/resend/{userId}")
+    public ResponseEntity<Void> resendFailureMessage(
+            @PathVariable("roomId") Long roomId,
+            @PathVariable("userId") Long userId,
+            @RequestBody MessageRequest.Resend resend
+    ) {
+        messageService.resendFailureMessage(roomId, userId, resend);
         return ResponseEntity.ok().build();
     }
 }
