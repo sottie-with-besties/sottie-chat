@@ -1,8 +1,10 @@
 package com.sottie.sottiechat.domain;
 
 import com.sottie.sottiechat.dto.ChatMessageDateGroup;
+import com.sottie.sottiechat.dto.MessageRequest;
 import com.sottie.sottiechat.repository.ChatMessageRepository;
 import com.sottie.sottiechat.service.MessageQueryService;
+import com.sottie.sottiechat.service.MessageService;
 import org.assertj.core.api.Assertions;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
@@ -19,6 +21,8 @@ class ChatMessageTest {
     ChatMessageRepository chatMessageRepository;
     @Autowired
     MessageQueryService messageQueryService;
+    @Autowired
+    MessageService messageService;
 
     @AfterEach
     void clean() {
@@ -111,5 +115,62 @@ class ChatMessageTest {
 //             groupByDate) {
 //            System.out.println(dto.getDate() + " " + dto.getChats().stream().map(ChatMessage::getTimestamp).toList());
 //        }
+    }
+
+    @Test
+    void resendTest() {
+        ChatMessage message = ChatMessage.builder()
+                .roomId(1L)
+                .userId(1L)
+                .contents("Hello World")
+                .messageType(MessageType.TEXT)
+                .eventType(EventType.CHAT)
+                .timestamp(LocalDateTime.of(2025, 3, 26, 14, 0))
+                .status(Status.FAIL)
+                .build();
+        ChatMessage message4 = ChatMessage.builder()
+                .roomId(1L)
+                .userId(1L)
+                .contents("Hello World4")
+                .messageType(MessageType.TEXT)
+                .eventType(EventType.CHAT)
+                .timestamp(LocalDateTime.of(2025, 3, 25, 14, 0))
+                .status(Status.SUCCESS)
+                .build();
+        ChatMessage message2 = ChatMessage.builder()
+                .roomId(1L)
+                .userId(2L)
+                .contents("Hello World2")
+                .messageType(MessageType.TEXT)
+                .eventType(EventType.CHAT)
+                .timestamp(LocalDateTime.of(2025, 3, 26, 14, 2))
+                .status(Status.SUCCESS)
+                .build();
+        ChatMessage message3 = ChatMessage.builder()
+                .roomId(1L)
+                .userId(2L)
+                .contents("Hello World3")
+                .messageType(MessageType.TEXT)
+                .eventType(EventType.CHAT)
+                .timestamp(LocalDateTime.of(2025, 3, 27, 14, 0))
+                .status(Status.FAIL)
+                .build();
+        ChatMessage message5 = ChatMessage.builder()
+                .roomId(2L)
+                .userId(3L)
+                .contents("Hello World5")
+                .eventType(EventType.CHAT)
+                .messageType(MessageType.TEXT)
+                .timestamp(LocalDateTime.of(2025, 3, 27, 14, 1))
+                .status(Status.FAIL)
+                .build();
+
+        ChatMessage saved = chatMessageRepository.save(message);
+        ChatMessage saved2 = chatMessageRepository.save(message2);
+        ChatMessage saved3 = chatMessageRepository.save(message3);
+        ChatMessage saved4 = chatMessageRepository.save(message4);
+        ChatMessage saved5 = chatMessageRepository.save(message5);
+
+        messageService.resendFailureMessage(1L, 1L, MessageRequest.Resend.builder().messageId(message.getId()).resendType(ResendType.RESEND).build());
     }
 }

@@ -67,6 +67,28 @@ public class MessageService {
                 .build()), CHAT_ROUTING_KEY, SEND_MESSAGE);
     }
 
+    public void resendFailureMessage(Long roomId, Long userId, MessageRequest.Resend resend) {
+        if (!deleteMessage(roomId, userId, resend.getMessageId())) {
+            throw new IllegalStateException("메시지 삭제에 실패했습니다.");
+        }
+
+        if (resend.getResendType() == ResendType.RESEND) { // 재전송이라면 메시지 새롭게 저장 및 propagation
+            ChatMessage message = messageQueryService.getMessage(resend.getMessageId());
+
+            MessageResponse.Chat response = MessageResponse.Chat.from(userId, message.getContents(), EventType.CHAT);
+            propagateMessageToSubs(roomId, response, CHAT_ROUTING_KEY, SEND_MESSAGE);
+        }
+    }
+
+    public boolean deleteMessage(Long roomId, Long userId, String messageId) {
+        Query query = new Query(Criteria
+                .where("roomId").is(roomId)
+                .and("userId").is(userId)
+                .and("_id").is(messageId)
+                .and("status").is("FAIL"));
+        return mongoTemplate.remove(query, ChatMessage.class).getDeletedCount() > 0;
+    }
+
     public void updateLastReadStatus(Long roomId, MessageRequest.LastRead lastRead) {
         // 채팅방 접속하는 경우, 최신 채팅 조회
         if (lastRead.getMessageId() == null) {
